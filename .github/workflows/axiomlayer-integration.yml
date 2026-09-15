@@ -1,0 +1,208 @@
+name: AxiomLayer Nixpkgs integration
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths: &integration_paths
+      - ".github/axiomlayer/**"
+      - ".github/upstream-workflows/**"
+      - ".github/workflows/**"
+      - "ci/axiomlayer/**"
+  push:
+    branches:
+      - master
+    paths: *integration_paths
+  schedule:
+    - cron: "23 9 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: axiomlayer-nixpkgs-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  FLEET_NIXPKGS_VERSION: nixos-26.05
+  FLEET_NIXPKGS_COMMIT: c3eea5b2156db11c7eeeada3dc737711255b253e
+  CONTROL_COMMIT: ee9c1a27542f7918a30d9e9e33155baea2b96c8a
+  FLEET_NIX_VERSION: "2.35.2"
+  NIX_CONFIG: |
+    experimental-features = nix-command flakes
+    flake-registry =
+    accept-flake-config = false
+    warn-dirty = false
+
+jobs:
+  policy:
+    name: Read-only fork and pin contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out the integration harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: integration
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github/axiomlayer
+            .github/upstream-workflows
+            .github/workflows
+            ci/axiomlayer
+      - name: Check out the exact fleet snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AxiomLayer/nixpkgs
+          ref: ${{ env.FLEET_NIXPKGS_COMMIT }}
+          path: snapshot
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Check out the exact Dotfiles control commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AxiomLayer/dotfiles
+          ref: ${{ env.CONTROL_COMMIT }}
+          path: control
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            config/nix-integration-inputs.json
+            config/upstream-promotion-policy.json
+            flake.lock
+            promotion/candidate.json
+      - name: Prove the immutable policy and workflow boundary
+        run: bash integration/ci/axiomlayer/test-contracts.sh integration snapshot control
+      - name: Prove the fork release branch still names the fleet pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          fork_tip=$(git ls-remote https://github.com/AxiomLayer/nixpkgs.git refs/heads/nixos-26.05 | awk 'NR == 1 { print $1 }')
+          test "$fork_tip" = "${{ env.FLEET_NIXPKGS_COMMIT }}"
+          printf 'fork_release_tip=%s\n' "$fork_tip"
+
+  fleet-pin:
+    name: Fleet pin / ${{ matrix.system }}
+    needs: policy
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            system: x86_64-linux
+          - runner: ubuntu-24.04-arm
+            system: aarch64-linux
+          - runner: macos-15-intel
+            system: x86_64-darwin
+          - runner: macos-15
+            system: aarch64-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - name: Check out the integration harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: integration
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github/axiomlayer
+            ci/axiomlayer
+      - name: Check out the exact fleet snapshot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AxiomLayer/nixpkgs
+          ref: ${{ env.FLEET_NIXPKGS_COMMIT }}
+          path: snapshot
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install the exact fleet Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
+          extra_nix_config: ${{ env.NIX_CONFIG }}
+      - name: Evaluate and build the fleet surface
+        run: >-
+          bash integration/ci/axiomlayer/run-surface.sh
+          integration
+          snapshot
+          "${{ env.FLEET_NIXPKGS_COMMIT }}"
+          "${{ matrix.system }}"
+          "${{ env.FLEET_NIX_VERSION }}"
+
+  resolve-upstream:
+    name: Resolve upstream release branch once
+    needs: policy
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      commit: ${{ steps.resolve.outputs.commit }}
+    steps:
+      - name: Resolve NixOS/nixpkgs without mutating the fork
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit=$(git ls-remote https://github.com/NixOS/nixpkgs.git refs/heads/nixos-26.05 | awk 'NR == 1 { print $1 }')
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+          printf 'upstream_commit=%s\n' "$commit"
+
+  upstream-tip:
+    name: Upstream candidate / ${{ matrix.system }}
+    needs:
+      - policy
+      - resolve-upstream
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            system: x86_64-linux
+          - runner: ubuntu-24.04-arm
+            system: aarch64-linux
+          - runner: macos-15-intel
+            system: x86_64-darwin
+          - runner: macos-15
+            system: aarch64-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - name: Check out the integration harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: integration
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github/axiomlayer
+            ci/axiomlayer
+      - name: Check out the resolved upstream candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: NixOS/nixpkgs
+          ref: ${{ needs.resolve-upstream.outputs.commit }}
+          path: snapshot
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install the exact fleet Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
+          extra_nix_config: ${{ env.NIX_CONFIG }}
+      - name: Evaluate and build the resolved upstream candidate
+        env:
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream.outputs.commit }}
+        run: >-
+          bash integration/ci/axiomlayer/run-surface.sh
+          integration
+          snapshot
+          "$UPSTREAM_COMMIT"
+          "${{ matrix.system }}"
+          "${{ env.FLEET_NIX_VERSION }}"

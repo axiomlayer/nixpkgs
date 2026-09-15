@@ -1,0 +1,111 @@
+{
+  "schema": "axiom-nixpkgs-upstream-integration-v1",
+  "fork": "AxiomLayer/nixpkgs",
+  "upstream": {
+    "repository": "NixOS/nixpkgs",
+    "branch": "nixos-26.05"
+  },
+  "fleetPin": {
+    "version": "nixos-26.05",
+    "release": "26.05",
+    "commit": "c3eea5b2156db11c7eeeada3dc737711255b253e",
+    "tree": "5e899b390ae23676032573bbe9871bfff45fd2de",
+    "flakeNixSha256": "6c832fcff564a86f877666fef40918f91aec61367104e8634876446a685c26fc",
+    "sourceArchiveSha256": "d709bfaf611f804a7889c0aa5de349f05e03d7453e9166e9b87338bc7e51f5e0",
+    "narHash": "sha256-vdhpDJ3Lr24lkZ+fDCjmBRRtw9/vcSzkqGJOJyF5h2U="
+  },
+  "control": {
+    "repository": "AxiomLayer/dotfiles",
+    "pullRequest": 49,
+    "commit": "ee9c1a27542f7918a30d9e9e33155baea2b96c8a",
+    "files": {
+      "config/upstream-promotion-policy.json": "f566c46f4f77a21756ec4684eaefbdb599b1fc1f258298f905ab4e375380492b",
+      "config/nix-integration-inputs.json": "206fbc07b8351b15fb9ddfee1654e4af56222908cd700040322925e1679fb832",
+      "flake.lock": "628bb8ffaec96ae8185c274353843f71cad638a5396776f1971882b9c24d933b",
+      "promotion/candidate.json": "b8dfa9b88367ba01bbfbc27afb5e01ed3a20ba1481de2c7fc3fc89ce58f80b6c"
+    },
+    "canonicalPolicySha256": "1aceee38c54298c760d8a2f2c98c8e03377fa5ad562f3f609ef55fc469882ce4"
+  },
+  "nix": {
+    "version": "2.35.2",
+    "installUrl": "https://releases.nixos.org/nix/nix-2.35.2/install"
+  },
+  "actions": {
+    "actions/checkout": {
+      "version": "7.0.1",
+      "commit": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "cachix/install-nix-action": {
+      "version": "31.11.1",
+      "commit": "13d8dd58da0234aa297dedd986986ccb8e7f3e24"
+    }
+  },
+  "activeWorkflows": [
+    ".github/workflows/axiomlayer-integration.yml"
+  ],
+  "archivedUpstreamWorkflows": {
+    ".github/upstream-workflows/backport.yml": "1903355f56b668da70747c76694f59d36fc8ad78cd2f60a083d0dfe274e0124a",
+    ".github/upstream-workflows/bot.yml": "4a846d07949b7e2474432e495766839dc00f2b89273794c59aa7bd3527ed9cc3",
+    ".github/upstream-workflows/build.yml": "9079eb1b60a9c764230938f58f3927dfeae28e69ad364c275a0ed9574b8b159b",
+    ".github/upstream-workflows/check.yml": "bac1c5fb6b2901c55b575e9e27fff7900ea6360a9ef8dfab9b8d989c32c9a8af",
+    ".github/upstream-workflows/comment.yml": "7bc76c8c71e2f6763e407bd43a02c72e06cd14561b5ed15690ef734a2bd9eb17",
+    ".github/upstream-workflows/edited.yml": "5aca8152a576d1b1f6ac7ff18cc5802b57303e04e6967c60524753e9630d321b",
+    ".github/upstream-workflows/eval.yml": "bad9698380d09ddd342e905107eff20e2a1b335e8d53e6bb51228e57bfa0a0c8",
+    ".github/upstream-workflows/lint.yml": "1a730418a1e227e82250109316150570bbc2a7f34df396f4776d9fb1e7ff41f1",
+    ".github/upstream-workflows/merge-group.yml": "06613701c3f7f216645829be0983d8d266b464d52f6f2b5ccf194c3b56f4aa1f",
+    ".github/upstream-workflows/periodic-merge-24h.yml": "238e2f1fe6e70725f2ca0764c01fd601385112b7975d3b762b791819979bc96c",
+    ".github/upstream-workflows/periodic-merge-6h.yml": "89f1324d990ae5076329b12a40f170f00a66c78ec99563794471600b3249e901",
+    ".github/upstream-workflows/periodic-merge.yml": "dfc152d4c52a30a9f53460499ef8df081af27a0e55798768e7f512834cec0164",
+    ".github/upstream-workflows/pull-request-target.yml": "29dda6117eddac0abf7b6f4cc6a57996b786e4c8f25317ab8faf4f936ceb41f1",
+    ".github/upstream-workflows/review.yml": "f5eb1301dca6af7968e5e89403e57fee32ee516e907620243dff1e9105ad0307",
+    ".github/upstream-workflows/reviewed.yml": "1c28051e01dd53bdb1f0fe541a8210093ecd2bad3106ba4a58257bfa7b632131",
+    ".github/upstream-workflows/teams.yml": "d458324f5552728063301ec4d7effd6203c78bc0b22798b763b9fafb7499e663",
+    ".github/upstream-workflows/test.yml": "9fb36918e76ed0a65e67e30bdc9ed19e9d069ad3e41ebd73af2b641facedafb6"
+  },
+  "archivedUpstreamDocuments": {
+    ".github/upstream-workflows/UPSTREAM-README.md": "1d31aaf406a0d4143cc0c47450c82ee73c8fa3d78b636862d7d5779752f11c79"
+  },
+  "nativeSystems": [
+    {
+      "runner": "ubuntu-24.04",
+      "system": "x86_64-linux"
+    },
+    {
+      "runner": "ubuntu-24.04-arm",
+      "system": "aarch64-linux"
+    },
+    {
+      "runner": "macos-15-intel",
+      "system": "x86_64-darwin"
+    },
+    {
+      "runner": "macos-15",
+      "system": "aarch64-darwin"
+    }
+  ],
+  "consumerTargets": {
+    "darwin-aarch64": "aarch64-darwin",
+    "darwin-x86_64": "x86_64-darwin",
+    "linux-aarch64": "aarch64-linux",
+    "linux-x86_64": "x86_64-linux",
+    "windows-aarch64": "wsl-aarch64",
+    "windows-x86_64": "wsl-x86_64",
+    "wsl-aarch64": "aarch64-linux",
+    "wsl-x86_64": "x86_64-linux"
+  },
+  "evaluatedPackages": [
+    "deno",
+    "fnm",
+    "go",
+    "node",
+    "npm",
+    "python",
+    "ripgrep",
+    "sqlite"
+  ],
+  "builtPackages": [
+    "hello",
+    "ripgrep",
+    "sqlite"
+  ]
+}
