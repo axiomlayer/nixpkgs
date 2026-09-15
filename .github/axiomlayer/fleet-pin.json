@@ -1,6 +1,6 @@
 {
   "schema": "axiom-nixpkgs-upstream-integration-v1",
-  "fork": "AxiomLayer/nixpkgs",
+  "fork": "axiomlayer/nixpkgs",
   "upstream": {
     "repository": "NixOS/nixpkgs",
     "branch": "nixos-26.05"
@@ -15,55 +15,101 @@
     "narHash": "sha256-vdhpDJ3Lr24lkZ+fDCjmBRRtw9/vcSzkqGJOJyF5h2U="
   },
   "control": {
-    "repository": "AxiomLayer/dotfiles",
+    "repository": "axiomlayer/dotfiles",
     "pullRequest": 49,
-    "commit": "ee9c1a27542f7918a30d9e9e33155baea2b96c8a",
+    "commit": "28df122c5685be02605eb5f2880fc155cd4b21cd",
     "files": {
-      "config/upstream-promotion-policy.json": "f566c46f4f77a21756ec4684eaefbdb599b1fc1f258298f905ab4e375380492b",
+      "config/upstream-promotion-policy.json": "f48137ef0925ee791313dbce0d2790919a3740f160baceac5e82a35f19d02dc1",
       "config/nix-integration-inputs.json": "206fbc07b8351b15fb9ddfee1654e4af56222908cd700040322925e1679fb832",
       "flake.lock": "628bb8ffaec96ae8185c274353843f71cad638a5396776f1971882b9c24d933b",
-      "promotion/candidate.json": "b8dfa9b88367ba01bbfbc27afb5e01ed3a20ba1481de2c7fc3fc89ce58f80b6c"
+      "promotion/candidate.json": "29a3d180e595031969b61864f7cbe30384d9f4cdace416cf90a24f607fe65065"
     },
-    "canonicalPolicySha256": "1aceee38c54298c760d8a2f2c98c8e03377fa5ad562f3f609ef55fc469882ce4"
+    "canonicalPolicySha256": "0628d345837f3ec3931bf51aad5b70b8aa9619522df55695b67a95f03f4e009b"
   },
   "nix": {
     "version": "2.35.2",
-    "installUrl": "https://releases.nixos.org/nix/nix-2.35.2/install"
+    "installerUrl": "https://releases.nixos.org/nix/nix-2.35.2/install",
+    "installerSha256": "9adda97297d9e8ab360df95c729eabff4f4f93d6db091953c3a68f29e3fb130c",
+    "wrapper": {
+      "path": "ci/axiomlayer/install-nix-ci.sh",
+      "sha256": "9a583b136a808771c848037ff9a5366ff341295cca87329c59e442be7acf1b58"
+    },
+    "surface": {
+      "path": "ci/axiomlayer/run-surface.sh",
+      "sha256": "ba3bf3c4520639cde35660d1e45f21fa40187bb42e1623dcd4da8aad29997c72"
+    },
+    "expressions": {
+      "evaluation": {
+        "path": "ci/axiomlayer/evaluate-surface.nix",
+        "sha256": "329a5580e8b8357890edcf57c65c33da5c8f23ba87571a836b1a177f9432a4d6"
+      },
+      "smoke": {
+        "path": "ci/axiomlayer/fleet-smoke.nix",
+        "sha256": "1e5a50d3227092b681882d70a5cd18c7cb62c1639fbd1a3e8f9c05ddb6edc303"
+      }
+    },
+    "nativeTarballSha256": {
+      "aarch64-darwin": "1695c13aba5afa7c2ecd6dc4a9393f602e7bbc440ed45e81602c831546580ec3",
+      "x86_64-darwin": "d725518d89f3b0b8d4af702a9d38d519814014cbe125afb3ed0545c9d755f6a5",
+      "aarch64-linux": "4d0302a2910f5eec1c33b8deef634f04899a75737e7001ec49908d003ae5efda",
+      "x86_64-linux": "0c3960a9792331a22081c3c7a5d8465db9b17c50b3acdf18587fa4c6f2cb1158"
+    }
   },
   "actions": {
     "actions/checkout": {
       "version": "7.0.1",
       "commit": "3d3c42e5aac5ba805825da76410c181273ba90b1"
-    },
-    "cachix/install-nix-action": {
-      "version": "31.11.1",
-      "commit": "13d8dd58da0234aa297dedd986986ccb8e7f3e24"
     }
   },
   "activeWorkflows": [
     ".github/workflows/axiomlayer-integration.yml"
   ],
-  "archivedUpstreamWorkflows": {
-    ".github/upstream-workflows/backport.yml": "1903355f56b668da70747c76694f59d36fc8ad78cd2f60a083d0dfe274e0124a",
-    ".github/upstream-workflows/bot.yml": "4a846d07949b7e2474432e495766839dc00f2b89273794c59aa7bd3527ed9cc3",
-    ".github/upstream-workflows/build.yml": "9079eb1b60a9c764230938f58f3927dfeae28e69ad364c275a0ed9574b8b159b",
-    ".github/upstream-workflows/check.yml": "bac1c5fb6b2901c55b575e9e27fff7900ea6360a9ef8dfab9b8d989c32c9a8af",
-    ".github/upstream-workflows/comment.yml": "7bc76c8c71e2f6763e407bd43a02c72e06cd14561b5ed15690ef734a2bd9eb17",
-    ".github/upstream-workflows/edited.yml": "5aca8152a576d1b1f6ac7ff18cc5802b57303e04e6967c60524753e9630d321b",
-    ".github/upstream-workflows/eval.yml": "bad9698380d09ddd342e905107eff20e2a1b335e8d53e6bb51228e57bfa0a0c8",
-    ".github/upstream-workflows/lint.yml": "1a730418a1e227e82250109316150570bbc2a7f34df396f4776d9fb1e7ff41f1",
-    ".github/upstream-workflows/merge-group.yml": "06613701c3f7f216645829be0983d8d266b464d52f6f2b5ccf194c3b56f4aa1f",
-    ".github/upstream-workflows/periodic-merge-24h.yml": "238e2f1fe6e70725f2ca0764c01fd601385112b7975d3b762b791819979bc96c",
-    ".github/upstream-workflows/periodic-merge-6h.yml": "89f1324d990ae5076329b12a40f170f00a66c78ec99563794471600b3249e901",
-    ".github/upstream-workflows/periodic-merge.yml": "dfc152d4c52a30a9f53460499ef8df081af27a0e55798768e7f512834cec0164",
-    ".github/upstream-workflows/pull-request-target.yml": "29dda6117eddac0abf7b6f4cc6a57996b786e4c8f25317ab8faf4f936ceb41f1",
-    ".github/upstream-workflows/review.yml": "f5eb1301dca6af7968e5e89403e57fee32ee516e907620243dff1e9105ad0307",
-    ".github/upstream-workflows/reviewed.yml": "1c28051e01dd53bdb1f0fe541a8210093ecd2bad3106ba4a58257bfa7b632131",
-    ".github/upstream-workflows/teams.yml": "d458324f5552728063301ec4d7effd6203c78bc0b22798b763b9fafb7499e663",
-    ".github/upstream-workflows/test.yml": "9fb36918e76ed0a65e67e30bdc9ed19e9d069ad3e41ebd73af2b641facedafb6"
-  },
-  "archivedUpstreamDocuments": {
-    ".github/upstream-workflows/UPSTREAM-README.md": "1d31aaf406a0d4143cc0c47450c82ee73c8fa3d78b636862d7d5779752f11c79"
+  "requiredStatusCheck": "Required Nixpkgs integration authority",
+  "activeWorkflowSha256": "603b9d382afcc2a0176199624f294000fe08129c526a212037a5409c02f218f3",
+  "upstreamArchive": {
+    "baselineCommit": "d902acf46aecb02ff20305362c3c21a4b6e67457",
+    "baselineGitHubTree": "92adeb17bcef059737ea9d7c0982f59e45e05634",
+    "root": ".github/upstream-archive",
+    "readme": ".github/upstream-archive/README.md",
+    "mode": "100644",
+    "files": {
+      ".github/ISSUE_TEMPLATE/01_bug_report.yml": "f1408be51a877f70edf02092c75bbdea836c7444867c20fa39cd4e70e7e0fe0b",
+      ".github/ISSUE_TEMPLATE/02_bug_report_darwin.yml": "95d1c13124d08cb7159bc65d67e5b11c83087ae464d15795d5081e3fb8482057",
+      ".github/ISSUE_TEMPLATE/03_bug_report_nixos.yml": "8d0090d9a8a098a15bb7560064c375c16ec0d179d361df1d1c970e0f889daed4",
+      ".github/ISSUE_TEMPLATE/04_build_failure.yml": "1e010c556d2d712745c07b1d29a0653dcce077814632bf0c18d510eaadda606d",
+      ".github/ISSUE_TEMPLATE/05_update_request.yml": "00103b3e2b5428921b623e2840020ad3629a0d508138b4a31fa1540435df4936",
+      ".github/ISSUE_TEMPLATE/06_module_request.yml": "0bbe6ea380e40004a4ee8d0cf14e1e65666006032801a21e965dffecea6b74ef",
+      ".github/ISSUE_TEMPLATE/07_backport_request.yml": "c97269e6190aa01a1c343b508d356020a3080c75ea58df9b29c1dc7aa6267349",
+      ".github/ISSUE_TEMPLATE/08_documentation_request.yml": "352b2f5a1d02c53e37c091f20f240a72b32dbc02c85627dd1cd67afe5a18cbeb",
+      ".github/ISSUE_TEMPLATE/09_unreproducible_package.yml": "535717707cfb1e006e50d111cba793846523b27f47201115ce155a9a438e909a",
+      ".github/ISSUE_TEMPLATE/10_package_request.yml": "865a028dc83e213cbd11e03da3dc246f68a4b654f184b29d8c6b4894145d15cd",
+      ".github/PULL_REQUEST_TEMPLATE.md": "cf9a45eba5acc991d55537ec6002e506273361f246382d66f8e5b0d0fcfdae23",
+      ".github/STALE-BOT.md": "69ba780f4be664e93ed3d151ed314cc228837abdfe4963056741d960e3bb6436",
+      ".github/actions/checkout/action.yml": "02f6c9918bc9577d7cace8506fe948461580dfbc431bffddc6e9572886503009",
+      ".github/dependabot.yml": "c97f2b4dc9a71e5adec8e485e2e7eba0b0bde72efe0d06f54ddedb912010c676",
+      ".github/labeler-development-branches.yml": "64cf4d38b5e9e3189a872b96a1db18630ed6d3953e97d65edf4e0faeb09d12f1",
+      ".github/labeler-no-sync.yml": "3f62bb7f18610b7e9d7507a8bdb52691a09ecdb525cffab456c8b23c464573d4",
+      ".github/labeler.yml": "d0d6c99389cde6a5eb49f076a592cc525e5baf08ffa1152b8f86fb7e62056b54",
+      ".github/workflows/README.md": "1d31aaf406a0d4143cc0c47450c82ee73c8fa3d78b636862d7d5779752f11c79",
+      ".github/workflows/backport.yml": "1903355f56b668da70747c76694f59d36fc8ad78cd2f60a083d0dfe274e0124a",
+      ".github/workflows/bot.yml": "4a846d07949b7e2474432e495766839dc00f2b89273794c59aa7bd3527ed9cc3",
+      ".github/workflows/build.yml": "9079eb1b60a9c764230938f58f3927dfeae28e69ad364c275a0ed9574b8b159b",
+      ".github/workflows/check.yml": "bac1c5fb6b2901c55b575e9e27fff7900ea6360a9ef8dfab9b8d989c32c9a8af",
+      ".github/workflows/comment.yml": "7bc76c8c71e2f6763e407bd43a02c72e06cd14561b5ed15690ef734a2bd9eb17",
+      ".github/workflows/edited.yml": "5aca8152a576d1b1f6ac7ff18cc5802b57303e04e6967c60524753e9630d321b",
+      ".github/workflows/eval.yml": "bad9698380d09ddd342e905107eff20e2a1b335e8d53e6bb51228e57bfa0a0c8",
+      ".github/workflows/lint.yml": "1a730418a1e227e82250109316150570bbc2a7f34df396f4776d9fb1e7ff41f1",
+      ".github/workflows/merge-group.yml": "06613701c3f7f216645829be0983d8d266b464d52f6f2b5ccf194c3b56f4aa1f",
+      ".github/workflows/periodic-merge-24h.yml": "238e2f1fe6e70725f2ca0764c01fd601385112b7975d3b762b791819979bc96c",
+      ".github/workflows/periodic-merge-6h.yml": "89f1324d990ae5076329b12a40f170f00a66c78ec99563794471600b3249e901",
+      ".github/workflows/periodic-merge.yml": "dfc152d4c52a30a9f53460499ef8df081af27a0e55798768e7f512834cec0164",
+      ".github/workflows/pull-request-target.yml": "29dda6117eddac0abf7b6f4cc6a57996b786e4c8f25317ab8faf4f936ceb41f1",
+      ".github/workflows/review.yml": "f5eb1301dca6af7968e5e89403e57fee32ee516e907620243dff1e9105ad0307",
+      ".github/workflows/reviewed.yml": "1c28051e01dd53bdb1f0fe541a8210093ecd2bad3106ba4a58257bfa7b632131",
+      ".github/workflows/teams.yml": "d458324f5552728063301ec4d7effd6203c78bc0b22798b763b9fafb7499e663",
+      ".github/workflows/test.yml": "9fb36918e76ed0a65e67e30bdc9ed19e9d069ad3e41ebd73af2b641facedafb6",
+      ".github/zizmor.yml": "d5a5de36ddaf12796aa282a894678f4bc2b670e28ebf2b4f3a27749ee4a479c2"
+    }
   },
   "nativeSystems": [
     {

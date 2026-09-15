@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+host_path=/usr/bin:/bin:/usr/sbin:/sbin
+PATH=$host_path
+export PATH
+
 if [[ $# -ne 5 ]]; then
   echo "usage: run-surface.sh HARNESS SNAPSHOT COMMIT SYSTEM NIX_VERSION" >&2
   exit 2
@@ -12,34 +16,103 @@ expected_commit=$3
 system=$4
 expected_nix_version=$5
 
+case "$system" in
+  x86_64-linux | aarch64-linux | x86_64-darwin | aarch64-darwin) ;;
+  *)
+    echo "unsupported Nix system: $system" >&2
+    exit 1
+    ;;
+esac
+
 actual_commit=$(git -C "$snapshot" rev-parse HEAD)
 if [[ "$actual_commit" != "$expected_commit" ]]; then
   echo "snapshot commit mismatch: expected $expected_commit, got $actual_commit" >&2
   exit 1
 fi
 
-actual_nix_version=$(nix --version)
-if [[ "$actual_nix_version" != "nix (Nix) $expected_nix_version" ]]; then
-  echo "Nix version mismatch: expected $expected_nix_version, got $actual_nix_version" >&2
-  exit 1
-fi
-
-native_system=$(nix eval --impure --raw --expr builtins.currentSystem)
+case "$(uname -s).$(uname -m)" in
+  Linux.x86_64) native_system=x86_64-linux ;;
+  Linux.aarch64 | Linux.arm64) native_system=aarch64-linux ;;
+  Darwin.x86_64) native_system=x86_64-darwin ;;
+  Darwin.arm64 | Darwin.aarch64) native_system=aarch64-darwin ;;
+  *)
+    echo "unsupported native host: $(uname -s).$(uname -m)" >&2
+    exit 1
+    ;;
+esac
 if [[ "$native_system" != "$system" ]]; then
   echo "runner system mismatch: expected $system, got $native_system" >&2
   exit 1
 fi
 
-temporary=$(mktemp -d)
+temporary=$(mktemp -d /tmp/axiom-nix-surface.XXXXXXXX)
 trap 'rm -rf "$temporary"' EXIT
+mkdir -p "$temporary/home" "$temporary/source"
 
-nix eval \
-  --impure \
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+if [[ ! -x "$nix_bin" ]]; then
+  echo "Nix binary is missing: $nix_bin" >&2
+  exit 1
+fi
+ci_user=$(id -un)
+safe_path=/nix/var/nix/profiles/default/bin:$host_path
+nix_config=$(printf '%s\n' \
+  'experimental-features = nix-command flakes' \
+  'flake-registry =' \
+  'accept-flake-config = false' \
+  'warn-dirty = false' \
+  'pure-eval = true' \
+  'restrict-eval = true')
+
+# Nixpkgs is executable input. Even on an ephemeral hosted runner, candidate
+# evaluation must not inherit GitHub's runtime tokens, event paths, proxy
+# credentials, credential helpers, or repository-controlled environment.
+clean_nix() {
+  /usr/bin/env -i \
+    HOME="$temporary/home" \
+    USER="$ci_user" \
+    LOGNAME="$ci_user" \
+    PATH="$safe_path" \
+    TMPDIR="$temporary" \
+    LANG=C \
+    LC_ALL=C \
+    CI=true \
+    NIX_CONFIG="$nix_config" \
+    "$@"
+}
+
+actual_nix_version=$(clean_nix "$nix_bin" --version)
+if [[ "$actual_nix_version" != "nix (Nix) $expected_nix_version" ]]; then
+  echo "Nix version mismatch: expected $expected_nix_version, got $actual_nix_version" >&2
+  exit 1
+fi
+
+# Export the exact commit, not the checkout worktree, then content-address both
+# executable inputs in the Nix store. This makes pure evaluation possible and
+# prevents candidate expressions from reading arbitrary mutable host paths.
+git -C "$snapshot" archive --format=tar "$expected_commit" |
+  tar -xf - -C "$temporary/source"
+source_store=$(clean_nix "$nix_bin" store add-path \
+  --name axiomlayer-nixpkgs-source "$temporary/source")
+harness_store=$(clean_nix "$nix_bin" store add-path \
+  --name axiomlayer-nixpkgs-harness "$harness/ci/axiomlayer")
+store_path_pattern='^/nix/store/[0-9a-df-np-sv-z]{32}-axiomlayer-nixpkgs-(source|harness)$'
+if [[ ! "$source_store" =~ $store_path_pattern ]]; then
+  echo "unexpected source store path: $source_store" >&2
+  exit 1
+fi
+if [[ ! "$harness_store" =~ $store_path_pattern ]]; then
+  echo "unexpected harness store path: $harness_store" >&2
+  exit 1
+fi
+
+evaluation_expression="(import $harness_store/evaluate-surface.nix) { source = $source_store; system = \"$system\"; }"
+clean_nix "$nix_bin" eval \
+  --option pure-eval true \
+  --option restrict-eval true \
   --json \
-  --file "$harness/ci/axiomlayer/evaluate-surface.nix" \
-  --arg source "$snapshot" \
-  --argstr system "$system" \
-  > "$temporary/evaluation.json"
+  --expr "$evaluation_expression" \
+  >"$temporary/evaluation.json"
 
 python3 - "$temporary/evaluation.json" "$system" <<'PY'
 import json
@@ -72,11 +145,11 @@ print("evaluated_packages=" + ",".join(sorted(expected_packages)))
 print("nixos_evaluation=" + ("verified" if system.endswith("-linux") else "not-applicable"))
 PY
 
-result=$(nix build \
-  --impure \
-  --file "$harness/ci/axiomlayer/fleet-smoke.nix" \
-  --arg source "$snapshot" \
-  --argstr system "$system" \
+build_expression="(import $harness_store/fleet-smoke.nix) { source = $source_store; system = \"$system\"; }"
+result=$(clean_nix "$nix_bin" build \
+  --option pure-eval true \
+  --option restrict-eval true \
+  --expr "$build_expression" \
   --no-link \
   --print-out-paths \
   -L)

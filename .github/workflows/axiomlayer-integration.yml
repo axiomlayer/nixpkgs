@@ -4,15 +4,19 @@ on:
   pull_request:
     branches:
       - master
-    paths: &integration_paths
+    paths:
       - ".github/axiomlayer/**"
-      - ".github/upstream-workflows/**"
+      - ".github/upstream-archive/**"
       - ".github/workflows/**"
       - "ci/axiomlayer/**"
   push:
     branches:
       - master
-    paths: *integration_paths
+    paths:
+      - ".github/axiomlayer/**"
+      - ".github/upstream-archive/**"
+      - ".github/workflows/**"
+      - "ci/axiomlayer/**"
   schedule:
     - cron: "23 9 * * 2"
   workflow_dispatch:
@@ -27,7 +31,6 @@ concurrency:
 env:
   FLEET_NIXPKGS_VERSION: nixos-26.05
   FLEET_NIXPKGS_COMMIT: c3eea5b2156db11c7eeeada3dc737711255b253e
-  CONTROL_COMMIT: ee9c1a27542f7918a30d9e9e33155baea2b96c8a
   FLEET_NIX_VERSION: "2.35.2"
   NIX_CONFIG: |
     experimental-features = nix-command flakes
@@ -38,56 +41,92 @@ env:
 jobs:
   policy:
     name: Read-only fork and pin contract
+    if: >-
+      github.repository == 'axiomlayer/nixpkgs' &&
+      github.event.repository.default_branch == 'master' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'master' &&
+          github.event.pull_request.head.repo.full_name == 'axiomlayer/nixpkgs' &&
+          github.sha == github.event.pull_request.merge_commit_sha &&
+          github.ref == format('refs/pull/{0}/merge', github.event.pull_request.number) &&
+          github.workflow_ref == format('axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/pull/{0}/merge', github.event.pull_request.number)
+        ) ||
+        (
+          (
+            (github.event_name == 'push' && github.sha == github.event.after) ||
+            github.event_name == 'schedule' ||
+            github.event_name == 'workflow_dispatch'
+          ) &&
+          github.ref == 'refs/heads/master' &&
+          github.ref_protected == true &&
+          github.workflow_ref == 'axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/heads/master'
+        )
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out the integration harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           path: integration
           fetch-depth: 0
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             .github/axiomlayer
-            .github/upstream-workflows
+            .github/upstream-archive
             .github/workflows
             ci/axiomlayer
+          clean: true
       - name: Check out the exact fleet snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: AxiomLayer/nixpkgs
+          repository: axiomlayer/nixpkgs
           ref: ${{ env.FLEET_NIXPKGS_COMMIT }}
           path: snapshot
           fetch-depth: 1
           persist-credentials: false
-      - name: Check out the exact Dotfiles control commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: AxiomLayer/dotfiles
-          ref: ${{ env.CONTROL_COMMIT }}
-          path: control
-          fetch-depth: 1
-          persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            config/nix-integration-inputs.json
-            config/upstream-promotion-policy.json
-            flake.lock
-            promotion/candidate.json
+          clean: true
       - name: Prove the immutable policy and workflow boundary
-        run: bash integration/ci/axiomlayer/test-contracts.sh integration snapshot control
+        run: bash integration/ci/axiomlayer/test-contracts.sh integration snapshot
       - name: Prove the fork release branch still names the fleet pin
         shell: bash
         run: |
           set -euo pipefail
-          fork_tip=$(git ls-remote https://github.com/AxiomLayer/nixpkgs.git refs/heads/nixos-26.05 | awk 'NR == 1 { print $1 }')
+          fork_tip=$(git ls-remote https://github.com/axiomlayer/nixpkgs.git refs/heads/nixos-26.05 | awk 'NR == 1 { print $1 }')
           test "$fork_tip" = "${{ env.FLEET_NIXPKGS_COMMIT }}"
           printf 'fork_release_tip=%s\n' "$fork_tip"
 
   fleet-pin:
     name: Fleet pin / ${{ matrix.system }}
     needs: policy
+    if: >-
+      needs.policy.result == 'success' &&
+      github.repository == 'axiomlayer/nixpkgs' &&
+      github.event.repository.default_branch == 'master' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          github.base_ref == 'master' &&
+          github.event.pull_request.head.repo.full_name == 'axiomlayer/nixpkgs' &&
+          github.sha == github.event.pull_request.merge_commit_sha &&
+          github.ref == format('refs/pull/{0}/merge', github.event.pull_request.number) &&
+          github.workflow_ref == format('axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/pull/{0}/merge', github.event.pull_request.number)
+        ) ||
+        (
+          (
+            (github.event_name == 'push' && github.sha == github.event.after) ||
+            github.event_name == 'schedule' ||
+            github.event_name == 'workflow_dispatch'
+          ) &&
+          github.ref == 'refs/heads/master' &&
+          github.ref_protected == true &&
+          github.workflow_ref == 'axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/heads/master'
+        )
+      )
     strategy:
       fail-fast: false
       matrix:
@@ -106,25 +145,26 @@ jobs:
       - name: Check out the integration harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           path: integration
+          fetch-depth: 1
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             .github/axiomlayer
             ci/axiomlayer
+          clean: true
       - name: Check out the exact fleet snapshot
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: AxiomLayer/nixpkgs
+          repository: axiomlayer/nixpkgs
           ref: ${{ env.FLEET_NIXPKGS_COMMIT }}
           path: snapshot
           fetch-depth: 1
           persist-credentials: false
+          clean: true
       - name: Install the exact fleet Nix
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
-          extra_nix_config: ${{ env.NIX_CONFIG }}
+        run: sh integration/ci/axiomlayer/install-nix-ci.sh
       - name: Evaluate and build the fleet surface
         run: >-
           bash integration/ci/axiomlayer/run-surface.sh
@@ -137,7 +177,14 @@ jobs:
   resolve-upstream:
     name: Resolve upstream release branch once
     needs: policy
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      needs.policy.result == 'success' &&
+      github.repository == 'axiomlayer/nixpkgs' &&
+      github.event.repository.default_branch == 'master' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/master' &&
+      github.ref_protected == true &&
+      github.workflow_ref == 'axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -158,7 +205,15 @@ jobs:
     needs:
       - policy
       - resolve-upstream
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: >-
+      needs.policy.result == 'success' &&
+      needs.resolve-upstream.result == 'success' &&
+      github.repository == 'axiomlayer/nixpkgs' &&
+      github.event.repository.default_branch == 'master' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/master' &&
+      github.ref_protected == true &&
+      github.workflow_ref == 'axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/heads/master'
     strategy:
       fail-fast: false
       matrix:
@@ -177,12 +232,15 @@ jobs:
       - name: Check out the integration harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           path: integration
+          fetch-depth: 1
           persist-credentials: false
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             .github/axiomlayer
             ci/axiomlayer
+          clean: true
       - name: Check out the resolved upstream candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -191,11 +249,9 @@ jobs:
           path: snapshot
           fetch-depth: 1
           persist-credentials: false
+          clean: true
       - name: Install the exact fleet Nix
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.35.2/install
-          extra_nix_config: ${{ env.NIX_CONFIG }}
+        run: sh integration/ci/axiomlayer/install-nix-ci.sh
       - name: Evaluate and build the resolved upstream candidate
         env:
           UPSTREAM_COMMIT: ${{ needs.resolve-upstream.outputs.commit }}
@@ -206,3 +262,76 @@ jobs:
           "$UPSTREAM_COMMIT"
           "${{ matrix.system }}"
           "${{ env.FLEET_NIX_VERSION }}"
+
+  workflow-required:
+    name: Required Nixpkgs integration authority
+    needs:
+      - policy
+      - fleet-pin
+      - resolve-upstream
+      - upstream-tip
+    if: ${{ always() }}
+    permissions: {}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      POLICY_RESULT: ${{ needs.policy.result }}
+      FLEET_PIN_RESULT: ${{ needs.fleet-pin.result }}
+      RESOLVE_UPSTREAM_RESULT: ${{ needs.resolve-upstream.result }}
+      UPSTREAM_TIP_RESULT: ${{ needs.upstream-tip.result }}
+      EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+      EVENT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_MERGE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+      PUSH_AFTER: ${{ github.event.after }}
+      EVENT_SHA: ${{ github.sha }}
+    steps:
+      - name: Refuse skipped, invalid, or incomplete verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_SERVER_URL" = https://github.com
+          test "$GITHUB_REPOSITORY" = axiomlayer/nixpkgs
+          test "$EVENT_REPOSITORY" = axiomlayer/nixpkgs
+          test "$EVENT_DEFAULT_BRANCH" = master
+          test "$POLICY_RESULT" = success
+          test "$FLEET_PIN_RESULT" = success
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EVENT_SHA" = "$GITHUB_SHA"
+
+          main_workflow_ref=axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/heads/master
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              test "$RESOLVE_UPSTREAM_RESULT" = skipped
+              test "$UPSTREAM_TIP_RESULT" = skipped
+              test "$GITHUB_BASE_REF" = master
+              test "$PR_HEAD_REPOSITORY" = axiomlayer/nixpkgs
+              [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+              [[ "$PR_MERGE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+              test "$GITHUB_SHA" = "$PR_MERGE_COMMIT"
+              test "$GITHUB_REF" = "refs/pull/$PR_NUMBER/merge"
+              test "$GITHUB_WORKFLOW_REF" = "axiomlayer/nixpkgs/.github/workflows/axiomlayer-integration.yml@refs/pull/$PR_NUMBER/merge"
+              ;;
+            push)
+              test "$RESOLVE_UPSTREAM_RESULT" = skipped
+              test "$UPSTREAM_TIP_RESULT" = skipped
+              [[ "$PUSH_AFTER" =~ ^[0-9a-f]{40}$ ]]
+              test "$GITHUB_SHA" = "$PUSH_AFTER"
+              test "$GITHUB_REF" = refs/heads/master
+              test "$GITHUB_REF_PROTECTED" = true
+              test "$GITHUB_WORKFLOW_REF" = "$main_workflow_ref"
+              ;;
+            schedule|workflow_dispatch)
+              test "$RESOLVE_UPSTREAM_RESULT" = success
+              test "$UPSTREAM_TIP_RESULT" = success
+              test "$GITHUB_REF" = refs/heads/master
+              test "$GITHUB_REF_PROTECTED" = true
+              test "$GITHUB_WORKFLOW_REF" = "$main_workflow_ref"
+              ;;
+            *)
+              printf 'unsupported event: %s\n' "$GITHUB_EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
